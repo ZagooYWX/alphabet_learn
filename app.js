@@ -168,21 +168,88 @@ function playWordAudio() {
     speakText(data.word.text);
 }
 
+// 备用：使用在线 TTS 服务（当浏览器不支持时）
+function speakWithOnlineTTS(text) {
+    // 使用 Google TTS 服务作为备用
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.8;
+    utterance.pitch = 1;
+    
+    // 尝试获取可用的语音
+    const voices = window.speechSynthesis.getVoices();
+    const englishVoice = voices.find(voice => voice.lang.includes('en'));
+    if (englishVoice) {
+        utterance.voice = englishVoice;
+    }
+    
+    window.speechSynthesis.speak(utterance);
+}
+
 // 使用 Web Speech API 朗读文本
 function speakText(text) {
-    if ('speechSynthesis' in window) {
-        // 取消之前的语音
-        window.speechSynthesis.cancel();
-        
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.8;
-        utterance.pitch = 1;
-        
-        window.speechSynthesis.speak(utterance);
-    } else {
-        alert('您的浏览器不支持语音播放功能');
+    if (!('speechSynthesis' in window)) {
+        showToast('您的浏览器不支持语音播放，请使用Chrome浏览器');
+        return;
     }
+    
+    // 取消之前的语音
+    window.speechSynthesis.cancel();
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+    utterance.rate = 0.8;
+    utterance.pitch = 1;
+    
+    // 错误处理
+    utterance.onerror = (event) => {
+        console.error('语音播放错误:', event.error);
+        if (event.error === 'not-allowed') {
+            showToast('请允许网页播放语音，或使用Chrome浏览器');
+        } else if (event.error === 'network') {
+            showToast('语音服务不可用，请检查网络');
+        } else {
+            showToast('语音播放失败，请尝试使用Chrome浏览器');
+        }
+    };
+    
+    // 某些浏览器需要延迟
+    setTimeout(() => {
+        window.speechSynthesis.speak(utterance);
+    }, 50);
+}
+
+// 显示提示信息（替代 alert）
+function showToast(message) {
+    // 移除已有的 toast
+    const existingToast = document.querySelector('.toast-message');
+    if (existingToast) {
+        existingToast.remove();
+    }
+    
+    const toast = document.createElement('div');
+    toast.className = 'toast-message';
+    toast.textContent = message;
+    toast.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 15px 25px;
+        border-radius: 25px;
+        font-size: 14px;
+        z-index: 10000;
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.style.animation = 'fadeOut 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+    }, 2000);
 }
 
 // ==================== 书写练习功能 ====================
