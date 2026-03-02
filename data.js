@@ -1,470 +1,487 @@
-// 应用状态
-let currentLetterIndex = 0;
-let currentCase = 'uppercase';
-let isDrawing = false;
-let canvas, ctx;
-let showGuideLine = true;
-
-// DOM 元素
-const homePage = document.getElementById('home-page');
-const learnPage = document.getElementById('learn-page');
-const practicePage = document.getElementById('practice-page');
-const alphabetGrid = document.getElementById('alphabet-grid');
-const progressDots = document.getElementById('progress-dots');
-
-// 初始化应用
-document.addEventListener('DOMContentLoaded', () => {
-    initHomePage();
-    initEventListeners();
-    initCanvas();
-});
-
-// 初始化首页 - 生成字母卡片
-function initHomePage() {
-    alphabetGrid.innerHTML = '';
-    alphabetData.forEach((item, index) => {
-        const card = document.createElement('div');
-        card.className = 'letter-card';
-        card.innerHTML = `
-            <div class="card-letter">${item.letter}</div>
-            <div class="card-lowercase">${item.lowercase}</div>
-            <div class="card-word">${item.word.text}</div>
-        `;
-        card.addEventListener('click', () => {
-            currentLetterIndex = index;
-            showLearnPage();
-        });
-        alphabetGrid.appendChild(card);
-    });
-}
-
-// 初始化事件监听
-function initEventListeners() {
-    // 返回按钮
-    document.getElementById('back-btn').addEventListener('click', showHomePage);
-    document.getElementById('practice-back-btn').addEventListener('click', showLearnPage);
-    
-    // 导航按钮
-    document.getElementById('prev-btn').addEventListener('click', showPrevLetter);
-    document.getElementById('next-btn').addEventListener('click', showNextLetter);
-    
-    // 书写练习按钮
-    document.getElementById('practice-btn').addEventListener('click', showPracticePage);
-    
-    // 音频按钮
-    document.getElementById('play-letter-audio').addEventListener('click', () => playLetterAudio('uppercase'));
-    document.getElementById('play-letter-audio-lower').addEventListener('click', () => playLetterAudio('lowercase'));
-    document.getElementById('play-word-audio').addEventListener('click', playWordAudio);
-    
-    // 书写练习页面标签
-    document.querySelectorAll('.tab-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            currentCase = e.target.dataset.case;
-            updateLetterGuide();
-            clearCanvas();
-        });
-    });
-    
-    // 画布控制按钮
-    document.getElementById('clear-canvas').addEventListener('click', clearCanvas);
-    document.getElementById('show-guide').addEventListener('click', toggleGuide);
-}
-
-// 显示首页
-function showHomePage() {
-    homePage.classList.add('active');
-    learnPage.classList.remove('active');
-    practicePage.classList.remove('active');
-}
-
-// 显示学习页面
-function showLearnPage() {
-    homePage.classList.remove('active');
-    learnPage.classList.add('active');
-    practicePage.classList.remove('active');
-    updateLearnPage();
-}
-
-// 显示书写练习页面
-function showPracticePage() {
-    homePage.classList.remove('active');
-    learnPage.classList.remove('active');
-    practicePage.classList.add('active');
-    
-    // 重置为大写标签
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelector('[data-case="uppercase"]').classList.add('active');
-    currentCase = 'uppercase';
-    
-    setTimeout(() => {
-        resizeCanvas();
-        updateLetterGuide();
-        clearCanvas();
-    }, 100);
-}
-
-// 更新学习页面内容
-function updateLearnPage() {
-    const data = alphabetData[currentLetterIndex];
-    
-    // 更新字母显示
-    document.getElementById('uppercase-letter').textContent = data.letter;
-    document.getElementById('lowercase-letter').textContent = data.lowercase;
-    
-    // 更新单词区域
-    document.getElementById('word-image').textContent = data.word.emoji;
-    document.getElementById('word-text').textContent = data.word.text;
-    document.getElementById('word-phonetic').textContent = data.word.phonetic;
-    document.getElementById('word-meaning').textContent = data.word.meaning;
-    
-    // 更新进度点
-    updateProgressDots();
-    
-    // 更新导航按钮状态
-    document.getElementById('prev-btn').disabled = currentLetterIndex === 0;
-    document.getElementById('next-btn').disabled = currentLetterIndex === alphabetData.length - 1;
-}
-
-// 更新进度点
-function updateProgressDots() {
-    progressDots.innerHTML = '';
-    alphabetData.forEach((_, index) => {
-        const dot = document.createElement('span');
-        dot.className = 'dot' + (index === currentLetterIndex ? ' active' : '');
-        progressDots.appendChild(dot);
-    });
-}
-
-// 显示上一个字母
-function showPrevLetter() {
-    if (currentLetterIndex > 0) {
-        currentLetterIndex--;
-        updateLearnPage();
-    }
-}
-
-// 显示下一个字母
-function showNextLetter() {
-    if (currentLetterIndex < alphabetData.length - 1) {
-        currentLetterIndex++;
-        updateLearnPage();
-    }
-}
-
-// 播放字母音频
-function playLetterAudio(caseType) {
-    const data = alphabetData[currentLetterIndex];
-    const letter = caseType === 'uppercase' ? data.letter : data.lowercase;
-    
-    // 使用 Web Speech API
-    speakText(letter);
-}
-
-// 播放单词音频
-function playWordAudio() {
-    const data = alphabetData[currentLetterIndex];
-    speakText(data.word.text);
-}
-
-// 备用：使用在线 TTS 服务（当浏览器不支持时）
-function speakWithOnlineTTS(text) {
-    // 使用 Google TTS 服务作为备用
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.8;
-    utterance.pitch = 1;
-    
-    // 尝试获取可用的语音
-    const voices = window.speechSynthesis.getVoices();
-    const englishVoice = voices.find(voice => voice.lang.includes('en'));
-    if (englishVoice) {
-        utterance.voice = englishVoice;
-    }
-    
-    window.speechSynthesis.speak(utterance);
-}
-
-// 使用 Web Speech API 朗读文本
-function speakText(text) {
-    if (!('speechSynthesis' in window)) {
-        showToast('您的浏览器不支持语音播放，请使用Chrome浏览器');
-        return;
-    }
-    
-    // 取消之前的语音
-    window.speechSynthesis.cancel();
-    
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US';
-    utterance.rate = 0.8;
-    utterance.pitch = 1;
-    
-    // 错误处理
-    utterance.onerror = (event) => {
-        console.error('语音播放错误:', event.error);
-        if (event.error === 'not-allowed') {
-            showToast('请允许网页播放语音，或使用Chrome浏览器');
-        } else if (event.error === 'network') {
-            showToast('语音服务不可用，请检查网络');
-        } else {
-            showToast('语音播放失败，请尝试使用Chrome浏览器');
+// 字母数据 - 包含26个英文字母的信息
+const alphabetData = [
+    {
+        letter: 'A',
+        lowercase: 'a',
+        phonetic: '/eɪ/',
+        word: {
+            text: 'Apple',
+            phonetic: '/ˈæpl/',
+            meaning: '苹果',
+            emoji: '🍎'
         }
-    };
-    
-    // 某些浏览器需要延迟
-    setTimeout(() => {
-        window.speechSynthesis.speak(utterance);
-    }, 50);
-}
-
-// 显示提示信息（替代 alert）
-function showToast(message) {
-    // 移除已有的 toast
-    const existingToast = document.querySelector('.toast-message');
-    if (existingToast) {
-        existingToast.remove();
-    }
-    
-    const toast = document.createElement('div');
-    toast.className = 'toast-message';
-    toast.textContent = message;
-    toast.style.cssText = `
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        background: rgba(0, 0, 0, 0.8);
-        color: white;
-        padding: 15px 25px;
-        border-radius: 25px;
-        font-size: 14px;
-        z-index: 10000;
-        animation: fadeIn 0.3s ease;
-    `;
-    
-    document.body.appendChild(toast);
-    
-    setTimeout(() => {
-        toast.style.animation = 'fadeOut 0.3s ease';
-        setTimeout(() => toast.remove(), 300);
-    }, 2000);
-}
-
-// ==================== 书写练习功能 ====================
-
-// 初始化画布
-function initCanvas() {
-    canvas = document.getElementById('writing-canvas');
-    ctx = canvas.getContext('2d');
-    
-    // 设置画布样式
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = 8;
-    ctx.strokeStyle = '#2196F3';
-    
-    // 添加触摸和鼠标事件
-    canvas.addEventListener('mousedown', startDrawing);
-    canvas.addEventListener('mousemove', draw);
-    canvas.addEventListener('mouseup', stopDrawing);
-    canvas.addEventListener('mouseout', stopDrawing);
-    
-    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
-    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
-    canvas.addEventListener('touchend', stopDrawing);
-    
-    // 窗口大小改变时调整画布
-    window.addEventListener('resize', () => {
-        if (practicePage.classList.contains('active')) {
-            resizeCanvas();
+    },
+    {
+        letter: 'B',
+        lowercase: 'b',
+        phonetic: '/biː/',
+        word: {
+            text: 'Ball',
+            phonetic: '/bɔːl/',
+            meaning: '球',
+            emoji: '⚽'
         }
-    });
-}
-
-// 调整画布大小
-function resizeCanvas() {
-    const container = canvas.parentElement;
-    const rect = container.getBoundingClientRect();
-    
-    // 保存当前内容
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = canvas.width;
-    tempCanvas.height = canvas.height;
-    const tempCtx = tempCanvas.getContext('2d');
-    tempCtx.drawImage(canvas, 0, 0);
-    
-    // 设置新尺寸
-    canvas.width = rect.width;
-    canvas.height = rect.height;
-    
-    // 恢复样式
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-    ctx.lineWidth = Math.max(6, rect.width / 20);
-    ctx.strokeStyle = '#2196F3';
-    
-    // 恢复内容（按比例缩放）
-    if (tempCanvas.width > 0 && tempCanvas.height > 0) {
-        ctx.drawImage(tempCanvas, 0, 0, canvas.width, canvas.height);
-    }
-}
-
-// 开始绘制
-function startDrawing(e) {
-    isDrawing = true;
-    const pos = getCanvasPosition(e);
-    ctx.beginPath();
-    ctx.moveTo(pos.x, pos.y);
-}
-
-// 绘制
-function draw(e) {
-    if (!isDrawing) return;
-    e.preventDefault();
-    const pos = getCanvasPosition(e);
-    ctx.lineTo(pos.x, pos.y);
-    ctx.stroke();
-}
-
-// 停止绘制
-function stopDrawing() {
-    isDrawing = false;
-    ctx.beginPath();
-}
-
-// 处理触摸开始
-function handleTouchStart(e) {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const mouseEvent = new MouseEvent('mousedown', {
-        clientX: touch.clientX,
-        clientY: touch.clientY
-    });
-    canvas.dispatchEvent(mouseEvent);
-}
-
-// 处理触摸移动
-function handleTouchMove(e) {
-    e.preventDefault();
-    const touch = e.touches[0];
-    const mouseEvent = new MouseEvent('mousemove', {
-        clientX: touch.clientX,
-        clientY: touch.clientY
-    });
-    canvas.dispatchEvent(mouseEvent);
-}
-
-// 获取画布位置
-function getCanvasPosition(e) {
-    const rect = canvas.getBoundingClientRect();
-    return {
-        x: e.clientX - rect.left,
-        y: e.clientY - rect.top
-    };
-}
-
-// 清除画布
-function clearCanvas() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-}
-
-// 切换描红显示
-function toggleGuide() {
-    showGuideLine = !showGuideLine;
-    updateLetterGuide();
-}
-
-// 更新字母描红
-function updateLetterGuide() {
-    const data = alphabetData[currentLetterIndex];
-    const guide = document.getElementById('letter-guide');
-    const letter = currentCase === 'uppercase' ? data.letter : data.lowercase;
-    
-    if (showGuideLine) {
-        guide.textContent = letter;
-        guide.style.opacity = '0.3';
-    } else {
-        guide.style.opacity = '0';
-    }
-    
-    // 更新笔画动画
-    updateStrokeAnimation(letter);
-}
-
-// 更新笔画顺序动画
-function updateStrokeAnimation(letter) {
-    const container = document.getElementById('stroke-animation');
-    const strokes = currentCase === 'uppercase' ? letterStrokes[letter] : lowercaseStrokes[letter];
-    
-    if (!strokes) {
-        container.innerHTML = '<p style="color: #999;">暂无笔画动画</p>';
-        return;
-    }
-    
-    // 创建SVG动画
-    const svgSize = 100;
-    let pathData = '';
-    
-    // 将笔画点转换为路径
-    for (let i = 0; i < strokes.length - 1; i += 2) {
-        const start = strokes[i];
-        const end = strokes[i + 1];
-        if (start && end) {
-            pathData += `M ${start.x} ${start.y} L ${end.x} ${end.y} `;
+    },
+    {
+        letter: 'C',
+        lowercase: 'c',
+        phonetic: '/siː/',
+        word: {
+            text: 'Cat',
+            phonetic: '/kæt/',
+            meaning: '猫',
+            emoji: '🐱'
+        }
+    },
+    {
+        letter: 'D',
+        lowercase: 'd',
+        phonetic: '/diː/',
+        word: {
+            text: 'Dog',
+            phonetic: '/dɒɡ/',
+            meaning: '狗',
+            emoji: '🐶'
+        }
+    },
+    {
+        letter: 'E',
+        lowercase: 'e',
+        phonetic: '/iː/',
+        word: {
+            text: 'Elephant',
+            phonetic: '/ˈelɪfənt/',
+            meaning: '大象',
+            emoji: '🐘'
+        }
+    },
+    {
+        letter: 'F',
+        lowercase: 'f',
+        phonetic: '/ef/',
+        word: {
+            text: 'Fish',
+            phonetic: '/fɪʃ/',
+            meaning: '鱼',
+            emoji: '🐟'
+        }
+    },
+    {
+        letter: 'G',
+        lowercase: 'g',
+        phonetic: '/dʒiː/',
+        word: {
+            text: 'Grape',
+            phonetic: '/ɡreɪp/',
+            meaning: '葡萄',
+            emoji: '🍇'
+        }
+    },
+    {
+        letter: 'H',
+        lowercase: 'h',
+        phonetic: '/eɪtʃ/',
+        word: {
+            text: 'House',
+            phonetic: '/haʊs/',
+            meaning: '房子',
+            emoji: '🏠'
+        }
+    },
+    {
+        letter: 'I',
+        lowercase: 'i',
+        phonetic: '/aɪ/',
+        word: {
+            text: 'Ice cream',
+            phonetic: '/ˈaɪs kriːm/',
+            meaning: '冰淇淋',
+            emoji: '🍦'
+        }
+    },
+    {
+        letter: 'J',
+        lowercase: 'j',
+        phonetic: '/dʒeɪ/',
+        word: {
+            text: 'Juice',
+            phonetic: '/dʒuːs/',
+            meaning: '果汁',
+            emoji: '🧃'
+        }
+    },
+    {
+        letter: 'K',
+        lowercase: 'k',
+        phonetic: '/keɪ/',
+        word: {
+            text: 'Kite',
+            phonetic: '/kaɪt/',
+            meaning: '风筝',
+            emoji: '🪁'
+        }
+    },
+    {
+        letter: 'L',
+        lowercase: 'l',
+        phonetic: '/el/',
+        word: {
+            text: 'Lion',
+            phonetic: '/ˈlaɪən/',
+            meaning: '狮子',
+            emoji: '🦁'
+        }
+    },
+    {
+        letter: 'M',
+        lowercase: 'm',
+        phonetic: '/em/',
+        word: {
+            text: 'Monkey',
+            phonetic: '/ˈmʌŋki/',
+            meaning: '猴子',
+            emoji: '🐵'
+        }
+    },
+    {
+        letter: 'N',
+        lowercase: 'n',
+        phonetic: '/en/',
+        word: {
+            text: 'Nest',
+            phonetic: '/nest/',
+            meaning: '鸟巢',
+            emoji: '🪺'
+        }
+    },
+    {
+        letter: 'O',
+        lowercase: 'o',
+        phonetic: '/əʊ/',
+        word: {
+            text: 'Orange',
+            phonetic: '/ˈɒrɪndʒ/',
+            meaning: '橙子',
+            emoji: '🍊'
+        }
+    },
+    {
+        letter: 'P',
+        lowercase: 'p',
+        phonetic: '/piː/',
+        word: {
+            text: 'Pig',
+            phonetic: '/pɪɡ/',
+            meaning: '猪',
+            emoji: '🐷'
+        }
+    },
+    {
+        letter: 'Q',
+        lowercase: 'q',
+        phonetic: '/kjuː/',
+        word: {
+            text: 'Queen',
+            phonetic: '/kwiːn/',
+            meaning: '女王',
+            emoji: '👸'
+        }
+    },
+    {
+        letter: 'R',
+        lowercase: 'r',
+        phonetic: '/ɑːr/',
+        word: {
+            text: 'Rabbit',
+            phonetic: '/ˈræbɪt/',
+            meaning: '兔子',
+            emoji: '🐰'
+        }
+    },
+    {
+        letter: 'S',
+        lowercase: 's',
+        phonetic: '/es/',
+        word: {
+            text: 'Sun',
+            phonetic: '/sʌn/',
+            meaning: '太阳',
+            emoji: '☀️'
+        }
+    },
+    {
+        letter: 'T',
+        lowercase: 't',
+        phonetic: '/tiː/',
+        word: {
+            text: 'Tiger',
+            phonetic: '/ˈtaɪɡər/',
+            meaning: '老虎',
+            emoji: '🐯'
+        }
+    },
+    {
+        letter: 'U',
+        lowercase: 'u',
+        phonetic: '/juː/',
+        word: {
+            text: 'Umbrella',
+            phonetic: '/ʌmˈbrelə/',
+            meaning: '雨伞',
+            emoji: '☂️'
+        }
+    },
+    {
+        letter: 'V',
+        lowercase: 'v',
+        phonetic: '/viː/',
+        word: {
+            text: 'Violin',
+            phonetic: '/ˌvaɪəˈlɪn/',
+            meaning: '小提琴',
+            emoji: '🎻'
+        }
+    },
+    {
+        letter: 'W',
+        lowercase: 'w',
+        phonetic: '/ˈdʌbljuː/',
+        word: {
+            text: 'Watermelon',
+            phonetic: '/ˈwɔːtəmelən/',
+            meaning: '西瓜',
+            emoji: '🍉'
+        }
+    },
+    {
+        letter: 'X',
+        lowercase: 'x',
+        phonetic: '/eks/',
+        word: {
+            text: 'Xylophone',
+            phonetic: '/ˈzaɪləfəʊn/',
+            meaning: '木琴',
+            emoji: '🎹'
+        }
+    },
+    {
+        letter: 'Y',
+        lowercase: 'y',
+        phonetic: '/waɪ/',
+        word: {
+            text: 'Yo-yo',
+            phonetic: '/ˈjəʊ jəʊ/',
+            meaning: '悠悠球',
+            emoji: '🪀'
+        }
+    },
+    {
+        letter: 'Z',
+        lowercase: 'z',
+        phonetic: '/zed/',
+        word: {
+            text: 'Zebra',
+            phonetic: '/ˈzebrə/',
+            meaning: '斑马',
+            emoji: '🦓'
         }
     }
-    
-    container.innerHTML = `
-        <svg viewBox="0 0 100 100" class="stroke-svg">
-            <defs>
-                <linearGradient id="strokeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" style="stop-color:#2196F3;stop-opacity:1" />
-                    <stop offset="100%" style="stop-color:#4CAF50;stop-opacity:1" />
-                </linearGradient>
-            </defs>
-            <text x="50" y="65" font-size="60" text-anchor="middle" fill="#ddd" font-family="Comic Sans MS, cursive">${letter}</text>
-            <path d="${pathData}" fill="none" stroke="url(#strokeGradient)" stroke-width="3" stroke-linecap="round" 
-                  class="animate-stroke"/>
-        </svg>
-    `;
-}
+];
 
-// 添加键盘导航支持
-document.addEventListener('keydown', (e) => {
-    if (learnPage.classList.contains('active')) {
-        if (e.key === 'ArrowLeft') showPrevLetter();
-        if (e.key === 'ArrowRight') showNextLetter();
-        if (e.key === 'Escape') showHomePage();
-    }
-    if (practicePage.classList.contains('active')) {
-        if (e.key === 'Escape') showLearnPage();
-    }
-});
+// 字母笔画路径数据（用于书写练习）
+const letterStrokes = {
+    'A': [
+        { x: 50, y: 20 }, { x: 25, y: 80 },
+        { x: 50, y: 20 }, { x: 75, y: 80 },
+        { x: 35, y: 55 }, { x: 65, y: 55 }
+    ],
+    'B': [
+        { x: 30, y: 20 }, { x: 30, y: 80 },
+        { x: 30, y: 20 }, { x: 60, y: 20 }, { x: 60, y: 45 }, { x: 30, y: 45 },
+        { x: 30, y: 45 }, { x: 60, y: 45 }, { x: 60, y: 80 }, { x: 30, y: 80 }
+    ],
+    'C': [
+        { x: 70, y: 30 }, { x: 50, y: 20 }, { x: 30, y: 30 }, { x: 30, y: 70 }, { x: 50, y: 80 }, { x: 70, y: 70 }
+    ],
+    'D': [
+        { x: 30, y: 20 }, { x: 30, y: 80 },
+        { x: 30, y: 20 }, { x: 55, y: 25 }, { x: 70, y: 50 }, { x: 55, y: 75 }, { x: 30, y: 80 }
+    ],
+    'E': [
+        { x: 65, y: 20 }, { x: 30, y: 20 }, { x: 30, y: 80 }, { x: 65, y: 80 },
+        { x: 30, y: 50 }, { x: 55, y: 50 }
+    ],
+    'F': [
+        { x: 65, y: 20 }, { x: 30, y: 20 }, { x: 30, y: 80 },
+        { x: 30, y: 50 }, { x: 55, y: 50 }
+    ],
+    'G': [
+        { x: 70, y: 30 }, { x: 50, y: 20 }, { x: 30, y: 30 }, { x: 30, y: 70 }, { x: 50, y: 80 }, { x: 70, y: 70 },
+        { x: 70, y: 55 }, { x: 50, y: 55 }
+    ],
+    'H': [
+        { x: 30, y: 20 }, { x: 30, y: 80 },
+        { x: 70, y: 20 }, { x: 70, y: 80 },
+        { x: 30, y: 50 }, { x: 70, y: 50 }
+    ],
+    'I': [
+        { x: 50, y: 20 }, { x: 50, y: 80 },
+        { x: 35, y: 20 }, { x: 65, y: 20 },
+        { x: 35, y: 80 }, { x: 65, y: 80 }
+    ],
+    'J': [
+        { x: 65, y: 20 }, { x: 65, y: 65 }, { x: 50, y: 80 }, { x: 35, y: 70 }
+    ],
+    'K': [
+        { x: 30, y: 20 }, { x: 30, y: 80 },
+        { x: 65, y: 20 }, { x: 30, y: 50 }, { x: 65, y: 80 }
+    ],
+    'L': [
+        { x: 35, y: 20 }, { x: 35, y: 80 }, { x: 65, y: 80 }
+    ],
+    'M': [
+        { x: 20, y: 80 }, { x: 20, y: 20 }, { x: 50, y: 60 }, { x: 80, y: 20 }, { x: 80, y: 80 }
+    ],
+    'N': [
+        { x: 30, y: 80 }, { x: 30, y: 20 }, { x: 70, y: 80 }, { x: 70, y: 20 }
+    ],
+    'O': [
+        { x: 50, y: 20 }, { x: 30, y: 30 }, { x: 30, y: 70 }, { x: 50, y: 80 }, { x: 70, y: 70 }, { x: 70, y: 30 }, { x: 50, y: 20 }
+    ],
+    'P': [
+        { x: 30, y: 80 }, { x: 30, y: 20 }, { x: 60, y: 20 }, { x: 60, y: 45 }, { x: 30, y: 45 }
+    ],
+    'Q': [
+        { x: 50, y: 20 }, { x: 30, y: 30 }, { x: 30, y: 65 }, { x: 50, y: 75 }, { x: 70, y: 65 }, { x: 70, y: 30 }, { x: 50, y: 20 },
+        { x: 58, y: 68 }, { x: 72, y: 82 }
+    ],
+    'R': [
+        { x: 30, y: 80 }, { x: 30, y: 20 }, { x: 60, y: 20 }, { x: 60, y: 45 }, { x: 30, y: 45 },
+        { x: 30, y: 45 }, { x: 60, y: 80 }
+    ],
+    'S': [
+        { x: 65, y: 28 }, { x: 50, y: 20 }, { x: 35, y: 28 }, { x: 35, y: 42 }, { x: 50, y: 50 }, { x: 65, y: 58 }, { x: 65, y: 72 }, { x: 50, y: 80 }, { x: 35, y: 72 }
+    ],
+    'T': [
+        { x: 50, y: 20 }, { x: 50, y: 80 },
+        { x: 25, y: 20 }, { x: 75, y: 20 }
+    ],
+    'U': [
+        { x: 30, y: 20 }, { x: 30, y: 65 }, { x: 50, y: 80 }, { x: 70, y: 65 }, { x: 70, y: 20 }
+    ],
+    'V': [
+        { x: 30, y: 20 }, { x: 50, y: 80 }, { x: 70, y: 20 }
+    ],
+    'W': [
+        { x: 20, y: 20 }, { x: 30, y: 80 }, { x: 50, y: 50 }, { x: 70, y: 80 }, { x: 80, y: 20 }
+    ],
+    'X': [
+        { x: 30, y: 20 }, { x: 70, y: 80 },
+        { x: 70, y: 20 }, { x: 30, y: 80 }
+    ],
+    'Y': [
+        { x: 30, y: 20 }, { x: 50, y: 50 }, { x: 70, y: 20 },
+        { x: 50, y: 50 }, { x: 50, y: 80 }
+    ],
+    'Z': [
+        { x: 30, y: 20 }, { x: 70, y: 20 }, { x: 30, y: 80 }, { x: 70, y: 80 }
+    ]
+};
 
-// 添加滑动手势支持（移动端）
-let touchStartX = 0;
-let touchEndX = 0;
-
-learnPage.addEventListener('touchstart', (e) => {
-    touchStartX = e.changedTouches[0].screenX;
-}, { passive: true });
-
-learnPage.addEventListener('touchend', (e) => {
-    touchEndX = e.changedTouches[0].screenX;
-    handleSwipe();
-}, { passive: true });
-
-function handleSwipe() {
-    const swipeThreshold = 50;
-    const diff = touchStartX - touchEndX;
-    
-    if (Math.abs(diff) > swipeThreshold) {
-        if (diff > 0) {
-            showNextLetter();
-        } else {
-            showPrevLetter();
-        }
-    }
-}
+// 小写字母笔画路径
+const lowercaseStrokes = {
+    'a': [
+        { x: 60, y: 35 }, { x: 60, y: 80 },
+        { x: 60, y: 50 }, { x: 45, y: 45 }, { x: 35, y: 55 }, { x: 35, y: 70 }, { x: 45, y: 80 }, { x: 60, y: 75 }
+    ],
+    'b': [
+        { x: 35, y: 20 }, { x: 35, y: 80 },
+        { x: 35, y: 55 }, { x: 50, y: 45 }, { x: 60, y: 55 }, { x: 60, y: 75 }, { x: 50, y: 82 }, { x: 35, y: 75 }
+    ],
+    'c': [
+        { x: 60, y: 40 }, { x: 45, y: 30 }, { x: 35, y: 45 }, { x: 35, y: 65 }, { x: 45, y: 80 }, { x: 60, y: 70 }
+    ],
+    'd': [
+        { x: 65, y: 20 }, { x: 65, y: 80 },
+        { x: 65, y: 55 }, { x: 50, y: 45 }, { x: 40, y: 55 }, { x: 40, y: 75 }, { x: 50, y: 82 }, { x: 65, y: 75 }
+    ],
+    'e': [
+        { x: 65, y: 50 }, { x: 50, y: 40 }, { x: 35, y: 50 }, { x: 35, y: 70 }, { x: 50, y: 80 }, { x: 65, y: 70 },
+        { x: 35, y: 55 }, { x: 55, y: 55 }
+    ],
+    'f': [
+        { x: 55, y: 20 }, { x: 55, y: 80 },
+        { x: 55, y: 35 }, { x: 70, y: 25 },
+        { x: 40, y: 50 }, { x: 70, y: 50 }
+    ],
+    'g': [
+        { x: 60, y: 35 }, { x: 60, y: 90 }, { x: 50, y: 100 }, { x: 35, y: 95 },
+        { x: 60, y: 50 }, { x: 45, y: 45 }, { x: 35, y: 55 }, { x: 35, y: 70 }, { x: 45, y: 80 }, { x: 60, y: 75 }
+    ],
+    'h': [
+        { x: 30, y: 20 }, { x: 30, y: 80 },
+        { x: 30, y: 50 }, { x: 50, y: 45 }, { x: 60, y: 55 }, { x: 60, y: 80 }
+    ],
+    'i': [
+        { x: 50, y: 35 }, { x: 50, y: 20 },
+        { x: 50, y: 45 }, { x: 50, y: 80 }
+    ],
+    'j': [
+        { x: 60, y: 35 }, { x: 60, y: 20 },
+        { x: 60, y: 45 }, { x: 60, y: 90 }, { x: 50, y: 100 }, { x: 40, y: 95 }
+    ],
+    'k': [
+        { x: 35, y: 20 }, { x: 35, y: 80 },
+        { x: 60, y: 45 }, { x: 35, y: 60 }, { x: 60, y: 80 }
+    ],
+    'l': [
+        { x: 50, y: 20 }, { x: 50, y: 80 }
+    ],
+    'm': [
+        { x: 25, y: 80 }, { x: 25, y: 45 }, { x: 40, y: 35 }, { x: 50, y: 45 }, { x: 60, y: 35 }, { x: 75, y: 45 }, { x: 75, y: 80 }
+    ],
+    'n': [
+        { x: 30, y: 80 }, { x: 30, y: 45 }, { x: 50, y: 35 }, { x: 70, y: 45 }, { x: 70, y: 80 }
+    ],
+    'o': [
+        { x: 50, y: 35 }, { x: 35, y: 45 }, { x: 35, y: 70 }, { x: 50, y: 80 }, { x: 65, y: 70 }, { x: 65, y: 45 }, { x: 50, y: 35 }
+    ],
+    'p': [
+        { x: 35, y: 45 }, { x: 35, y: 95 },
+        { x: 35, y: 50 }, { x: 50, y: 40 }, { x: 60, y: 50 }, { x: 60, y: 70 }, { x: 50, y: 80 }, { x: 35, y: 70 }
+    ],
+    'q': [
+        { x: 65, y: 45 }, { x: 65, y: 95 },
+        { x: 65, y: 50 }, { x: 50, y: 40 }, { x: 40, y: 50 }, { x: 40, y: 70 }, { x: 50, y: 80 }, { x: 65, y: 70 }
+    ],
+    'r': [
+        { x: 35, y: 80 }, { x: 35, y: 45 }, { x: 50, y: 35 }, { x: 60, y: 42 }
+    ],
+    's': [
+        { x: 60, y: 42 }, { x: 45, y: 35 }, { x: 40, y: 48 }, { x: 50, y: 55 }, { x: 60, y: 62 }, { x: 55, y: 78 }, { x: 40, y: 72 }
+    ],
+    't': [
+        { x: 50, y: 25 }, { x: 50, y: 75 },
+        { x: 35, y: 40 }, { x: 65, y: 40 }
+    ],
+    'u': [
+        { x: 35, y: 35 }, { x: 35, y: 70 }, { x: 50, y: 80 }, { x: 65, y: 70 }, { x: 65, y: 35 }
+    ],
+    'v': [
+        { x: 35, y: 35 }, { x: 50, y: 80 }, { x: 65, y: 35 }
+    ],
+    'w': [
+        { x: 25, y: 35 }, { x: 35, y: 80 }, { x: 50, y: 55 }, { x: 65, y: 80 }, { x: 75, y: 35 }
+    ],
+    'x': [
+        { x: 35, y: 35 }, { x: 65, y: 80 },
+        { x: 65, y: 35 }, { x: 35, y: 80 }
+    ],
+    'y': [
+        { x: 35, y: 35 }, { x: 50, y: 65 }, { x: 65, y: 35 },
+        { x: 50, y: 65 }, { x: 50, y: 90 }, { x: 40, y: 100 }
+    ],
+    'z': [
+        { x: 35, y: 35 }, { x: 65, y: 35 }, { x: 35, y: 80 }, { x: 65, y: 80 }
+    ]
+};
