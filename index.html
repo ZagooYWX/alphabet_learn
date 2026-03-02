@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#667eea">
+    <meta name="description" content="专为儿童设计的英文字母学习应用，包含字母书写、读音和单词学习">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="字母学习">
+    <title>英文字母学习</title>
+    <!-- PWA 配置 -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icons/icon.svg">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="app">
+        <!-- 首页 - 字母选择 -->
+        <div id="home-page" class="page active">
+            <header class="app-header">
+                <h1>🎓 英文字母学习</h1>
+                <p>点击字母开始学习</p>
+            </header>
+            <div class="alphabet-grid" id="alphabet-grid">
+                <!-- 字母卡片将通过JS动态生成 -->
+            </div>
+        </div>
+
+        <!-- 学习页面 - 单个字母详情 -->
+        <div id="learn-page" class="page">
+            <header class="learn-header">
+                <button class="back-btn" id="back-btn">← 返回</button>
+                <div class="progress-dots" id="progress-dots"></div>
+            </header>
+            
+            <div class="learn-content">
+                <!-- 大写字母展示区 -->
+                <div class="letter-display">
+                    <div class="letter-box uppercase" id="uppercase-letter"></div>
+                    <button class="audio-btn" id="play-letter-audio">🔊</button>
+                </div>
+
+                <!-- 小写字母展示区 -->
+                <div class="letter-display">
+                    <div class="letter-box lowercase" id="lowercase-letter"></div>
+                    <button class="audio-btn" id="play-letter-audio-lower">🔊</button>
+                </div>
+
+                <!-- 单词展示区 -->
+                <div class="word-section" id="word-section">
+                    <div class="word-image" id="word-image"></div>
+                    <div class="word-info">
+                        <div class="word-text" id="word-text"></div>
+                        <div class="word-phonetic" id="word-phonetic"></div>
+                        <div class="word-meaning" id="word-meaning"></div>
+                        <button class="audio-btn word-audio-btn" id="play-word-audio">🔊 播放单词</button>
+                    </div>
+                </div>
+
+                <!-- 书写练习按钮 -->
+                <button class="practice-btn" id="practice-btn">✏️ 书写练习</button>
+            </div>
+
+            <!-- 导航按钮 -->
+            <div class="nav-buttons">
+                <button class="nav-btn prev-btn" id="prev-btn">← 上一个</button>
+                <button class="nav-btn next-btn" id="next-btn">下一个 →</button>
+            </div>
+        </div>
+
+        <!-- 书写练习页面 -->
+        <div id="practice-page" class="page">
+            <header class="learn-header">
+                <button class="back-btn" id="practice-back-btn">← 返回学习</button>
+                <h2>书写练习</h2>
+            </header>
+            
+            <div class="practice-content">
+                <div class="practice-tabs">
+                    <button class="tab-btn active" data-case="uppercase">大写</button>
+                    <button class="tab-btn" data-case="lowercase">小写</button>
+                </div>
+
+                <div class="canvas-container">
+                    <canvas id="writing-canvas"></canvas>
+                    <div class="letter-guide" id="letter-guide"></div>
+                </div>
+
+                <div class="canvas-controls">
+                    <button class="control-btn" id="clear-canvas">清除</button>
+                    <button class="control-btn" id="show-guide">显示/隐藏 描红</button>
+                </div>
+
+                <div class="stroke-order" id="stroke-order">
+                    <h3>笔画顺序</h3>
+                    <div class="stroke-animation" id="stroke-animation"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="data.js"></script>
+    <script src="app.js"></script>
+    <script>
+        // 注册 Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((registration) => {
+                        console.log('Service Worker 注册成功:', registration.scope);
+                    })
+                    .catch((error) => {
+                        console.log('Service Worker 注册失败:', error);
+                    });
+            });
+        }
+    </script>
+</body>
+</html>

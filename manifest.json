@@ -1,0 +1,21 @@
+{
+  "name": "英文字母学习",
+  "short_name": "字母学习",
+  "description": "专为儿童设计的英文字母学习应用，包含字母书写、读音和单词学习",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#667eea",
+  "theme_color": "#667eea",
+  "orientation": "portrait",
+  "scope": "/",
+  "lang": "zh-CN",
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["education", "kids"]
+}
